@@ -6,5 +6,6 @@ build
 .cache
 .coverage
 .coverage.xml
+.pytest_cache/
 scenarios.egg-info/
 htmlcov/
