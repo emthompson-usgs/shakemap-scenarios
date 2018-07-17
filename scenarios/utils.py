@@ -13,7 +13,7 @@ from shapely.geometry import Polygon
 from shapely.geometry import Point
 
 import openquake.hazardlib.geo as geo
-from openquake.hazardlib.geo.utils import get_orthographic_projection
+from openquake.hazardlib.geo.utils import OrthographicProjection
 
 from mapio.gmt import GMTGrid
 from impactutils.io.cmd import get_command_output
@@ -254,7 +254,7 @@ def get_extent(origin, rupture=None):
         mindist_km = 1000.
 
     # Projection
-    proj = get_orthographic_projection(clon - 4, clon + 4, clat + 4, clat - 4)
+    proj = OrthographicProjection(clon - 4, clon + 4, clat + 4, clat - 4)
     if isinstance(rupture, (QuadRupture, EdgeRupture)):
         ruptx, rupty = proj(lons, lats)
     else:
@@ -558,8 +558,9 @@ def run_one_old_shakemap(eventid, topo=True, genex=True):
             calls.
 
     """
-    config = ConfigObj(os.path.join(os.path.expanduser('~'), 'scenarios.conf'))
-    shakehome = config['system']['shakehome']
+    config = ConfigObj(os.path.join(
+        os.path.expanduser('~'), '.scenarios.conf'))
+    shakehome = config['scenarios']['shakehome']
     log = {}
     shakebin = os.path.join(shakehome, 'bin')
     datadir = os.path.join(shakehome, 'data')
@@ -570,26 +571,20 @@ def run_one_old_shakemap(eventid, topo=True, genex=True):
     # Read in event.xml
     event = read_event_file(xml_file)
 
-    # Read in gmpe set name
-    gmpefile = open(os.path.join(inputdir, "gmpe_set_name.txt"), "r")
-    set_name = gmpefile.read()
-    gmpefile.close()
-
     # Add scenario-specific fields:
     eventtree = ET.parse(xml_file)
     eventroot = eventtree.getroot()
     for eq in eventroot.iter('earthquake'):
         description = eq.attrib['description']
-        directivity = eq.attrib['directivity']
+        # directivity = eq.attrib['directivity']
         if 'reference' in eq.attrib.keys():
             reference = eq.attrib['reference']
         else:
             reference = ''
 
     event['description'] = description
-    event['directivity'] = directivity
+    # event['directivity'] = directivity
     event['reference'] = reference
-
 
     grd = os.path.join(inputdir, 'pgv_estimates.grd')
     gdict = GMTGrid.getFileGeoDict(grd)[0]
@@ -628,21 +623,29 @@ def run_one_old_shakemap(eventid, topo=True, genex=True):
 
     # Add GMPE set name to info.json
     cmd = os.path.join(shakebin, 'edit_info') + ' -event ' + eventid + \
-        ' -tag gmpe_reference' + ' -value ' + set_name
+        ' -tag gmpe_reference' + ' -value ' + 'see multigmpe section'
     rc, so, se = get_command_output(cmd)
-    log['edit_info'] = {'rc': rc, 'so': so, 'se': se}
+    log['edit_info'] = {
+        'rc': rc,
+        'so': so,
+        'se': se
+    }
 
     # Tag
     calltag = os.path.join(shakebin, 'tag') + \
         ' -event ' + eventid + ' -name \"' + event['locstring'] + ' - ' + \
         event['description'] + '\"'
     rc, so, se = get_command_output(calltag)
-    log['tag'] = {'rc': rc, 'so': so, 'se': se}
+    log['tag'] = {
+        'rc': rc,
+        'so': so,
+        'se': se
+    }
 
     # Copy rock_grid.xml from input to output directory
-    rg_scr = os.path.join(inputdir, 'rock_grid.xml')
-    rg_dst = os.path.join(eventdir, 'output', 'rock_grid.xml')
-    cmd = shutil.copy(rg_scr, rg_dst)
+    # rg_scr = os.path.join(inputdir, 'rock_grid.xml')
+    # rg_dst = os.path.join(eventdir, 'output', 'rock_grid.xml')
+    # cmd = shutil.copy(rg_scr, rg_dst)
 
     # Mapping
     if topo is True:
@@ -652,14 +655,22 @@ def run_one_old_shakemap(eventid, topo=True, genex=True):
     callmapping = os.path.join(shakebin, 'mapping') + ' -event ' + \
         eventid + ' -timestamp -nohinges ' + topostr
     rc, so, se = get_command_output(callmapping)
-    log['mapping'] = {'rc': rc, 'so': so, 'se': se}
+    log['mapping'] = {
+        'rc': rc,
+        'so': so,
+        'se': se
+    }
 
     # Genex
     if genex is True:
         callgenex = os.path.join(shakebin, 'genex') + ' -event ' + \
             eventid + ' -metadata -zip -verbose -shape shape -shape hazus'
         rc, so, se = get_command_output(callgenex)
-        log['genex'] = {'rc': rc, 'so': so, 'se': se}
+        log['genex'] = {
+            'rc': rc,
+            'so': so,
+            'se': se
+        }
 
     return log
 
@@ -751,10 +762,11 @@ def read_event_xml(file):
         hour = int(eq.attrib['hour'])
         minute = int(eq.attrib['minute'])
         second = int(eq.attrib['second'])
-        if 'directivity' in eq.attrib.keys():
-            directivity = ast.literal_eval(eq.attrib['directivity'])
-        else:
-            directivity = False
+        # if 'directivity' in eq.attrib.keys():
+        #     directivity = ast.literal_eval(eq.attrib['directivity'])
+        # else:
+        #     directivity = False
+        directivity = False
         if 'eventsourcecode' in eq.attrib.keys():
             eventsourcecode = eq.attrib['eventsourcecode']
         else:
@@ -762,20 +774,39 @@ def read_event_xml(file):
 
     sdt = ShakeDateTime(year, month, day, hour, minute, second, int(0))
 
-    event = {'lat': hlat,
-             'lon': hlon,
-             'depth': hdepth,
-             'mag': magnitude,
-             'rake': rake,
-             'id': id_str,
-             'locstring': lstring,
-             'type': mech,
-             'mech': mech,
-             'time': sdt.strftime('%Y-%m-%dT%H:%M:%SZ'),
-             'timezone': 'UTC',
-             'directivity': directivity,
-             'description': description,
-             'eventsourcecode': eventsourcecode,
-             'sdt': sdt}
+    event = {
+        'lat': hlat,
+        'lon': hlon,
+        'depth': hdepth,
+        'mag': magnitude,
+        'rake': rake,
+        'id': id_str,
+        'locstring': lstring,
+        'type': mech,
+        'mech': mech,
+        'time': sdt.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'timezone': 'UTC',
+        'directivity': directivity,
+        'description': description,
+        'eventsourcecode': eventsourcecode,
+        'sdt': sdt
+    }
 
     return event
+
+
+def grdcmp(x, y, rtol=1e-6, atol=0):
+    """
+    Compare contents of two GMT GRD files using numpy assert method. 
+
+    Args:
+        x:
+            Path to a GRD file. 
+        y:
+            Another path to a GRD file. 
+    """
+    xgrid = GMTGrid.load(x)
+    xdata = xgrid.getData()
+    ygrid = GMTGrid.load(y)
+    ydata = ygrid.getData()
+    np.testing.assert_allclose(xdata, ydata, rtol=rtol, atol=atol)

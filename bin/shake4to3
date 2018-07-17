@@ -1,0 +1,152 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import argparse
+from configobj import ConfigObj
+import numpy as np
+from lxml import etree
+import json
+
+from mapio.gmt import GMTGrid
+
+from shakelib.utils.containers import ShakeMapOutputContainer
+
+
+COMPONENT = 'GREATER_OF_TWO_HORIZONTAL'
+
+
+def main(args):
+    # ShakeMap 4 config stuff
+    configdir = os.path.join(os.path.expanduser('~'), '.shakemap')
+    configfile = os.path.join(configdir, 'profiles.conf')
+    config = ConfigObj(configfile)
+    profile_path = os.path.join(
+        os.path.expanduser('~'), 'shakemap_profiles', config['profile'])
+    sm4_dir = os.path.join(
+        profile_path, 'data', args.eventid, 'current')
+    sm4_grid_file = os.path.join(sm4_dir, 'products', 'shake_result.hdf')
+    container = ShakeMapOutputContainer.load(sm4_grid_file)
+
+    # Scenario config stuff
+    scenario_conf_file = os.path.join(
+        os.path.expanduser('~'), '.scenarios.conf')
+    scenario_conf = ConfigObj(scenario_conf_file)
+    sm3_dir = scenario_conf['scenarios']['shakehome']
+    sm3_data_dir = os.path.join(sm3_dir, 'data')
+    sm3_event_dir = os.path.join(sm3_data_dir, args.eventid)
+    if not os.path.exists(sm3_event_dir):
+        os.makedirs(sm3_event_dir)
+    sm3_input_dir = os.path.join(sm3_event_dir, 'input')
+    if not os.path.exists(sm3_input_dir):
+        os.makedirs(sm3_input_dir)
+
+    # Write estimate and sd files
+
+    # gridnames = container.getIMTs(COMPONENT)
+
+    # PGA
+    pga_mean = container.getIMTGrids('PGA', COMPONENT)['mean']
+    pga_std = container.getIMTGrids('PGA', COMPONENT)['std']
+    pga_mean_gmt = GMTGrid(pga_mean.getData(), pga_mean.getGeoDict())
+    pga_std_gmt = GMTGrid(pga_std.getData(), pga_mean.getGeoDict())
+    pga_mean_gmt.save(os.path.join(sm3_input_dir, "pga_estimates.grd"))
+    pga_std_gmt.save(os.path.join(sm3_input_dir, "pga_sd.grd"))
+
+    # PGV
+    pgv_mean = container.getIMTGrids('PGV', COMPONENT)['mean']
+    pgv_std = container.getIMTGrids('PGV', COMPONENT)['std']
+    pgv_mean_gmt = GMTGrid(pgv_mean.getData(), pgv_mean.getGeoDict())
+    pgv_std_gmt = GMTGrid(pgv_std.getData(), pgv_mean.getGeoDict())
+    pgv_mean_gmt.save(os.path.join(sm3_input_dir, "pgv_estimates.grd"))
+    pgv_std_gmt.save(os.path.join(sm3_input_dir, "pgv_sd.grd"))
+
+    # SA(0.3)
+    sa03_mean = container.getIMTGrids('SA(0.3)', COMPONENT)['mean']
+    sa03_std = container.getIMTGrids('SA(0.3)', COMPONENT)['std']
+    sa03_mean_gmt = GMTGrid(sa03_mean.getData(), sa03_mean.getGeoDict())
+    sa03_std_gmt = GMTGrid(sa03_std.getData(), sa03_mean.getGeoDict())
+    sa03_mean_gmt.save(os.path.join(sm3_input_dir, "psa03_estimates.grd"))
+    sa03_std_gmt.save(os.path.join(sm3_input_dir, "psa03_sd.grd"))
+
+    # SA(1.0)
+    sa10_mean = container.getIMTGrids('SA(1.0)', COMPONENT)['mean']
+    sa10_std = container.getIMTGrids('SA(1.0)', COMPONENT)['std']
+    sa10_mean_gmt = GMTGrid(sa10_mean.getData(), sa10_mean.getGeoDict())
+    sa10_std_gmt = GMTGrid(sa10_std.getData(), sa10_mean.getGeoDict())
+    sa10_mean_gmt.save(os.path.join(sm3_input_dir, "psa10_estimates.grd"))
+    sa10_std_gmt.save(os.path.join(sm3_input_dir, "psa10_sd.grd"))
+
+    # SA(3.0)
+    sa30_mean = container.getIMTGrids('SA(3.0)', COMPONENT)['mean']
+    sa30_std = container.getIMTGrids('SA(3.0)', COMPONENT)['std']
+    sa30_mean_gmt = GMTGrid(sa30_mean.getData(), sa30_mean.getGeoDict())
+    sa30_std_gmt = GMTGrid(sa30_std.getData(), sa30_mean.getGeoDict())
+    sa30_mean_gmt.save(os.path.join(sm3_input_dir, "psa30_estimates.grd"))
+    sa30_std_gmt.save(os.path.join(sm3_input_dir, "psa30_sd.grd"))
+
+    # MMI
+    mi_mean = container.getIMTGrids('MMI', COMPONENT)['mean']
+    mi_std = container.getIMTGrids('MMI', COMPONENT)['std']
+    mi_mean_gmt = GMTGrid(mi_mean.getData(), mi_mean.getGeoDict())
+    mi_std_gmt = GMTGrid(mi_std.getData(), mi_mean.getGeoDict())
+    mi_mean_gmt.save(os.path.join(sm3_input_dir, "mi_estimates.grd"))
+    mi_std_gmt.save(os.path.join(sm3_input_dir, "mi_sd.grd"))
+
+    # Fault file
+    rupt = container.getRuptureObject()
+    rupt.writeTextFile(
+        os.path.join(sm3_input_dir, "%s_fault.txt" % args.eventid))
+
+    # Event.xml
+    origin = rupt.getOrigin()
+    xml_file = os.path.join(sm3_input_dir, 'event.xml')
+    root = etree.Element('earthquake')
+    root.set('id', origin.id)
+    root.set('lat', str(np.round(origin.lat, 5)))
+    root.set('lon', str(np.round(origin.lon, 5)))
+    root.set('mag', str(origin.mag))
+    root.set('depth', str(np.round(origin.depth, 4)))
+    root.set('locstring', origin.locstring)
+    root.set('description', origin.locstring)
+    root.set('created', '')
+    root.set('otime', '')
+    root.set('network', origin.network)
+    root.set('netid', origin.netid)
+
+    root.set('year', origin.time.strftime('%Y'))
+    root.set('month', origin.time.strftime('%m'))
+    root.set('day', origin.time.strftime('%d'))
+    root.set('minute', origin.time.strftime('%M'))
+    root.set('second', origin.time.strftime('%S'))
+    root.set('timezone', 'UTC')
+    root.set('time', origin.time.strftime('%Y-%m-%dT%H:%M:%SZ'))
+    # Note: productcode and eventsourcecode are the same except when
+    # we have multiple products for the same event. In that case we
+    # would have multiple productcodes for the same eventsourcecode.
+    root.set('productcode', origin.productcode)
+    root.set('eventsourcecode', origin.productcode)
+    et = etree.ElementTree(root)
+    et.write(xml_file, pretty_print=True, xml_declaration=True,
+             encoding="us-ascii")
+
+    # Metadata -- especially for multigmpe info
+    info = container.getMetadata()
+    infostring = json.dumps(info)
+    info_file = os.path.join(sm3_input_dir, 'info.json')
+    f = open(info_file, 'wt')
+    f.write(infostring)
+    f.close()
+
+
+if __name__ == '__main__':
+    desc = '''
+    Create the ShakeMap 3 inputs (including *_estimates.grd and *_sd.grd files)
+    from a ShakeMap 4 output file.
+    '''
+    parser = argparse.ArgumentParser(description=desc)
+    parser.add_argument('eventid',
+                        help='The id of the event to process.')
+    args = parser.parse_args()
+    main(args)
+    sys.exit(0)

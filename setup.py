@@ -10,8 +10,15 @@ setup(name='scenarios',
       author_email='emthompson@usgs.gov',
       url='http://github.com/usgs/shakemap',
       packages=['scenarios'],
-      package_data={'scenarios': [os.path.join('..', 'rupture_sets', '*'),
-                                  os.path.join('data', '*'),
-                                  os.path.join('..', 'tests', 'data', '*')]},
-      scripts=['runscenarios', 'mkinputdir', 'mkscenariogrids'],
+      package_data={
+          'scenarios': [
+              os.path.join('..', 'rupture_sets', '*'),
+              os.path.join('data', '*'),
+              os.path.join('..', 'tests', 'data', '*')]
+      },
+      scripts=[
+          'bin/shake4to3',
+          'bin/runscenarios',
+          'bin/mkinputdir',
+          'bin/mkscenariogrids'],
       )

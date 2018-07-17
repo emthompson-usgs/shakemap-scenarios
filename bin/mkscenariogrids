@@ -12,7 +12,7 @@ from configobj import ConfigObj
 from shakemap.utils.config import get_custom_validator
 from shakemap.utils.config import config_error
 
-#-------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Openquake utilities
 from openquake.hazardlib import imt, const
 
@@ -57,14 +57,14 @@ def main(args):
     input_dir = os.path.join(evt_dir, 'input')
     xml_file = os.path.join(input_dir, 'event.xml')
 
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Read in event.xml and create Origin object
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     origin = Origin.fromFile(xml_file)
 
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Read in rupture
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     cmd = 'ls %s/*rupture.json' % (input_dir)
     rc, so, se = get_command_output(cmd)
     if rc is False:
@@ -84,27 +84,28 @@ def main(args):
     # Set the dx for the rupture meshing
     rupt._mesh_dx = args.mesh_dx
 
-    #---------------------------------------------------------------------------
-    # Construct the MultiGMPE, not specific/filtered to an IMT
-    #---------------------------------------------------------------------------
-
+    # config stuff
     tmp = pkg_resources.resource_filename(
         'scenarios', os.path.join('..', 'data', 'gmpe_sets.conf'))
     config.merge(ConfigObj(tmp, configspec=spec_file))
     tmp = pkg_resources.resource_filename(
         'scenarios', os.path.join('..', 'data', 'modules.conf'))
     config.merge(ConfigObj(tmp, configspec=spec_file))
-    results = config.validate(validator)
-    if results != True:
-        config_error(config, results)
 
+    #results = config.validate(validator)
+    # if results is not True:
+    #    config_error(config, results)
     config = config.dict()
 
-    gmpe = MultiGMPE.from_config(config, verbose=args.verbose)
+    # -------------------------------------------------------------------------
+    # Construct the MultiGMPE, not specific/filtered to an IMT
+    # -------------------------------------------------------------------------
 
-    #---------------------------------------------------------------------------
+    gmpe = MultiGMPE.from_config(config)
+
+    # -------------------------------------------------------------------------
     # Compute extent, or get from args
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     if args.extent is None:
         lonmin, lonmax, latmin, latmax = get_extent(origin, rupt)
     else:
@@ -136,10 +137,16 @@ def main(args):
         ncell = nx * ny
 
     # Geodictionary for this ShakeMap
-    tmpdict = {'xmin': lonmin, 'xmax': lonmax,
-               'ymin': latmin, 'ymax': latmax,
-               'dx': res, 'dy': res,
-               'nx': nx, 'ny': ny}
+    tmpdict = {
+        'xmin': lonmin,
+        'xmax': lonmax,
+        'ymin': latmin,
+        'ymax': latmax,
+        'dx': res,
+        'dy': res,
+        'nx': nx,
+        'ny': ny
+    }
     smdict = GeoDict(tmpdict, adjust='bounds')
 
     if args.verbose is True:
@@ -147,9 +154,9 @@ def main(args):
         print(smdict)
         print('')
 
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Make rupture context
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     rx = rupt.getRuptureContext(gmpe)
 
     if args.verbose is True:
@@ -159,9 +166,9 @@ def main(args):
         print('Hyp lon: %s' % rx.hypo_lon)
         print('Hyp dep: %s\n' % rx.hypo_depth)
 
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Vs30 stuff
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     vs30filename = config['data']['vs30file']
     vs30grid = GMTGrid.load(vs30filename, smdict, resample=True)
 
@@ -180,26 +187,31 @@ def main(args):
         print('Min Vs30: %s' % np.min(sx.vs30))
         print('Max Vs30: %s\n' % np.max(sx.vs30))
 
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Standard deviation stuff
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     # Only use total standard deviation for scenarios since
     # we never have data to get bias.
     stddev_types = [const.StdDev.TOTAL]
 
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Intensity measures (excluding MI)
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     # Mapping between the IM notation in ShakeMap and the
     # OpenQuake notation for the IMs taht we want
-    imt_dict = {'pga': 'PGA', 'pgv': 'PGV', 'psa03': 'SA(0.3)',
-                'psa10': 'SA(1.0)', 'psa30': 'SA(3.0)'}
+    imt_dict = {
+        'pga': 'PGA',
+        'pgv': 'PGV',
+        'psa03': 'SA(0.3)',
+        'psa10': 'SA(1.0)',
+        'psa30': 'SA(3.0)'
+    }
 
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Mesh calculations
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     lats = np.linspace(smdict.ymax, smdict.ymin, smdict.ny)
     lons = np.linspace(smdict.xmin, smdict.xmax, smdict.nx)
     lon, lat = np.meshgrid(lons, lats)
@@ -220,9 +232,9 @@ def main(args):
         print('Min Rrup: %s' % np.min(dx.rrup))
         print('Max Rrup: %s\n' % np.max(dx.rrup))
 
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Intensity measure calculation
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     # Make a dictionary to store intensity measure(s) and
     # their sigmas.
@@ -251,9 +263,9 @@ def main(args):
                    'psa30': {'mean': np.zeros(orig_shape),
                              'sigma': np.zeros(orig_shape)}}
 
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Directivity
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     if isinstance(origin.directivity, str):
         dirbool = str2bool(origin.directivity)
     else:
@@ -265,32 +277,32 @@ def main(args):
         fd1 = R13.getFd()[0]
         fd3 = R13.getFd()[1]
 
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Evaluate GMPEs
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     for key, val in imt_dict.items():
         iimt = imt.from_string(val)
         if args.verbose is True:
             print("IMT: %s" % val)
 
-        #-----------------------------------------------------------------------
+        # ---------------------------------------------------------------------
         # Re-construct the MultiGMPE, but specifcy the IMT so that it filters
         # out GMPEs that cannot be evaluated at this IMT
-        #-----------------------------------------------------------------------
-        gmpe = MultiGMPE.from_config(config, filter_imt=iimt,
-                                     verbose=args.verbose)
+        # ---------------------------------------------------------------------
+        gmpe = MultiGMPE.from_config(config, filter_imt=iimt)
+
         lnmu, lnsd = gmpe.get_mean_and_stddevs(
             sx, rx, dx, iimt, stddev_types)
         lnmu_rock, lnsd_rock = gmpe.get_mean_and_stddevs(
             sx_rock, rx, dx, iimt, stddev_types)
 
-        #-----------------------------------------------------------------------
+        # ---------------------------------------------------------------------
         # Handle directivity factors
         # NOTE: currently, the Rowshandel model does not provide
         #       equations for adjusting sigma. Asssuming these are
         #       eventually available, need to move the sigma
         #       adjustment into this if-statement.
-        #-----------------------------------------------------------------------
+        # ---------------------------------------------------------------------
         if dirbool is True:
             if (key == 'pgv') | (key == 'psa10'):
                 fd = fd1
@@ -310,9 +322,9 @@ def main(args):
         imdict_rock[key]['mean'] = lnmu_rock
         imdict_rock[key]['sigma'] = lnsd_rock[0]
 
-    #-----------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Write files
-    #-----------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     # Loop over intensity dictionary (PGA PGV, PSA03, PSA10, PSA30)
     for key, val in imdict.items():
@@ -340,9 +352,9 @@ def main(args):
         fd1grd.save(os.path.join(input_dir, 'fd1.grd'))
         fd3grd.save(os.path.join(input_dir, 'fd3.grd'))
 
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # MMI - Use VirtualIPE
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     gmpe = MultiGMPE.from_config(config, filter_imt=imt.PGV(),
                                  verbose=args.verbose)
     gmice = WGRW12()
@@ -394,13 +406,13 @@ def main(args):
                  'event_timestamp': datetime.utcnow(),
                  'event_network': 'us',
                  'event_description': ""}
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Note: cannot put standard deviations here becaus they go
     # into uncertainty.xml; in the current version of shakemap there
     # is no where to put rock grid standard deviations. We should
     # change this in the next udpate. The uncertainty here is based on
     # instrumental records and so it is not really meaningful for scenarios.
-    #---------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     uncDict = {'pga': (0, 0),
                'pgv': (0, 0),
                'mmi': (0, 0),
@@ -427,15 +439,17 @@ if __name__ == '__main__':
     parser.add_argument(
         '-m', '--max', default=500000, type=int,
         help='Maximum number of cells allowed; '
-        'resolution is adjusted to ensure this number is not exceeded; '
-        'default is 500,000.')
+             'resolution is adjusted to ensure this number is not exceeded; '
+             'default is 500,000.')
     parser.add_argument(
         '--mesh_dx', default=0.5, type=float,
-        help='The resolution for rupture mesh in km; only used for EdgeRuptures; '
-             'default is 0.5.')
+        help='The resolution for rupture mesh in km; only used for '
+             'EdgeRuptures; default is 0.5.')
     parser.add_argument(
-        '--extent', nargs='+', help='Extent: lonmin, latmin, lonmax, latmax.',
-        required=False, default=None, type=float)
+        '--extent', nargs='+',
+        help='Extent: lonmin, latmin, lonmax, latmax.',
+        required=False,
+        default=None, type=float)
     parser.add_argument(
         '-v', '--verbose', action="store_true", default=False,
         help='Add verbose output.')

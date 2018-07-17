@@ -17,24 +17,30 @@ shakedir = os.path.abspath(os.path.join(homedir, '..'))
 sys.path.insert(0, shakedir)
 
 
-
 def test_get_extent_no_rup():
-    origin = Origin({'id': 'test', 'lat': 37.1, 'lon': -122.1,
-                     'depth': 5.0, 'mag': 8.5})
+    origin = Origin({
+        'id': 'test', 'lat': 37.1, 'lon': -122.1,
+        'depth': 5.0, 'mag': 8.5,
+        'netid': '', 'network': '', 'locstring': '', 'time': ''
+    })
     extent = np.array(get_extent(origin))
     np.testing.assert_allclose(extent,
-        np.array([[-126.5981497 ],
-                  [-117.13214326],
-                  [  33.23305437],
-                  [  40.77859864]]))
-    origin = Origin({'id': 'test', 'lat': 37.1, 'lon': -122.1,
-                     'depth': 5.0, 'mag': 6})
+                               np.array([[-126.5981497],
+                                         [-117.13214326],
+                                         [33.23305437],
+                                         [40.77859864]]))
+    origin = Origin({
+        'id': 'test', 'lat': 37.1, 'lon': -122.1,
+        'depth': 5.0, 'mag': 6,
+        'netid': '', 'network': '', 'locstring': '', 'time': ''
+    })
     extent = np.array(get_extent(origin))
     np.testing.assert_allclose(extent,
-        np.array([[-123.21199895],
-                  [-120.9613286 ],
-                  [  36.19336348],
-                  [  37.99597076]]))
+                               np.array([[-123.21199895],
+                                         [-120.9613286],
+                                         [36.19336348],
+                                         [37.99597076]]))
+
 
 def test_get_hypo_and_event_id():
     jsonfile = os.path.join(
@@ -54,8 +60,8 @@ def test_get_hypo_and_event_id():
     np.testing.assert_allclose(rup['event']['depth'], 8.96001742487494)
 
     id_str, eventsourcecode, real_desc = get_event_id(
-            'test', rup['event']['mag'], args.directivity, args.dirind,
-            rup['rupture'].getQuadrilaterals())
+        'test', rup['event']['mag'], args.directivity, args.dirind,
+        rup['rupture'].getQuadrilaterals())
     assert id_str == 'test_m7p26_se~dir0'
     assert eventsourcecode == 'test_m7p26_se'
     assert real_desc == 'Western directivity'
@@ -67,8 +73,8 @@ def test_get_hypo_and_event_id():
     np.testing.assert_allclose(rup['event']['depth'], 8.96001742487494)
 
     id_str, eventsourcecode, real_desc = get_event_id(
-            'test', rup['event']['mag'], args.directivity, args.dirind,
-            rup['rupture'].getQuadrilaterals())
+        'test', rup['event']['mag'], args.directivity, args.dirind,
+        rup['rupture'].getQuadrilaterals())
     assert id_str == 'test_m7p26_se~dir1'
     assert eventsourcecode == 'test_m7p26_se'
     assert real_desc == 'Bilateral directivity'
@@ -80,12 +86,11 @@ def test_get_hypo_and_event_id():
     np.testing.assert_allclose(rup['event']['depth'], 8.96001742487494)
 
     id_str, eventsourcecode, real_desc = get_event_id(
-            'test', rup['event']['mag'], args.directivity, args.dirind,
-            rup['rupture'].getQuadrilaterals())
+        'test', rup['event']['mag'], args.directivity, args.dirind,
+        rup['rupture'].getQuadrilaterals())
     assert id_str == 'test_m7p26_se~dir2'
     assert eventsourcecode == 'test_m7p26_se'
     assert real_desc == 'Eastern directivity'
-
 
 
 def test_find_rupture():

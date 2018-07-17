@@ -33,7 +33,7 @@ def main(args):
     elif rupts['format'].lower() == 'shakemap':
         rlist = parse_json_shakemap(rupts, args)
     else:
-        raise Exception('Unknown rupture file format.')
+        raise IOError('Unknown rupture file format.')
 
     nrup = len(rlist)
 
@@ -42,54 +42,61 @@ def main(args):
         rdict = rlist[i]
         id_str = rdict['id_str']
 
-        #-----------------------------------------------------------------------
+        # ---------------------------------------------------------------------
         # Write files
-        #-----------------------------------------------------------------------
+        # ---------------------------------------------------------------------
 
         # Create base directory if it doesn't exist
         datdir = os.path.join(shakehome, 'data')
-        if os.path.isdir(datdir) == False:
+        if os.path.isdir(datdir) is False:
             os.mkdir(datdir)
 
         # Create event directory if it doesn't exist
         evt_dir = os.path.join(datdir, id_str)
-        if os.path.isdir(evt_dir) == False:
+        if os.path.isdir(evt_dir) is False:
             os.mkdir(evt_dir)
         print(evt_dir)
 
         # Create input directory if it doesn't exist
         input_dir = os.path.join(evt_dir, 'input')
-        if os.path.isdir(input_dir) == False:
+        if os.path.isdir(input_dir) is False:
             os.mkdir(input_dir)
 
-        #-----------------------------------------------------------------------
+        # ---------------------------------------------------------------------
         # Write rupture files and event.xml
-        #-----------------------------------------------------------------------
+        # ---------------------------------------------------------------------
         if rdict['rupture'] is not None:
             write_rupture_files(input_dir, rdict)
+
+        rdict['netid'] = ''
 
         write_event_xml(input_dir, rdict, args.directivity)
 
 
 if __name__ == '__main__':
     desc = '''
-    Create ShakeMap input directory. This is designed primarily to be used with
-    an input file that provides rupture information.
+    Create ShakeMap input directory. This is meant to be used with
+    an input file that provides rupture information for many events.
     '''
     parser = argparse.ArgumentParser(description=desc)
-    parser.add_argument('-f', '--file', help='File with rupture information.',
-                        required=True)
-    parser.add_argument('-r', '--reference', help='Reference for rupture source.',
-                        default='')
-    parser.add_argument('-d', '--dirind',
-                        help='Directivity; -1 for no directivity (default); 0 '
-                        'and 2 are the two opposing unilateral directions,'
-                        ' 1 is for bilateral.',
-                        default=-1, type=int, choices=[-1, 0, 1, 2])
-    parser.add_argument('-i', '--index',
-                        help='List of rupture indices to run. Useful if you do '
-                        'not want to run all ruptures in the file.',
-                        nargs='*')
+    parser.add_argument(
+        '-f', '--file', help='File with rupture information.',
+        required=True)
+    parser.add_argument(
+        '-r', '--reference',
+        help='Reference for rupture source.',
+        default='')
+    parser.add_argument(
+        '-d', '--dirind',
+        help='Directivity; -1 for no directivity (default); 0 '
+             'and 2 are the two opposing unilateral '
+             'directions, 1 is for bilateral.',
+        default=-1, type=int, choices=[-1, 0, 1, 2])
+    parser.add_argument(
+        '-i', '--index',
+        help='List of rupture indices to run. Useful if you '
+             'do not want to run all ruptures in the file.',
+        nargs='*')
     args = parser.parse_args()
     if args.dirind == -1:
         args.directivity = False
